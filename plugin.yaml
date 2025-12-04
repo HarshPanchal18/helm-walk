@@ -1,0 +1,29 @@
+apiVersion: v1
+type: cli/v1
+name: "walk"
+version: "0.1.0"
+runtime: subprocess
+config:
+  usage: walk
+  shortHelp: Flatten YAML object(s).
+  longHelp: |-
+            Flattenning nested YAML objects to see property in a single line.
+            Comes handy for finding configuration value in an easier manner and in less time instead of scrolling through tall YAML ladder.
+            Show --help for more functions.
+            E.x. Transforming traditional YAML, $ helm walk -f values.yaml
+                alertmanager:
+                  enabled: true
+                  ingress:
+                    enabled: false
+              into
+                  alertmanager.enabled: true
+                  alertmanager.ingress.enabled: false
+
+runtimeConfig:
+  platformCommand:
+    - command: ${HELM_PLUGIN_DIR}/helm-walk
+    - os: windows
+      command: ${HELM_PLUGIN_DIR}/helm-walk.exe
+platformHooks:
+  install:
+    - command: ${HELM_PLUGIN_DIR}/helm-walk
