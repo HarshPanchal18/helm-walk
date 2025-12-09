@@ -19,6 +19,7 @@ var (
 	outputFile string
 	depth int
 	includeEmpty bool
+	kvSeparator string
 )
 
 func findNodeByPath(node *yaml.Node, entrypoint string) (*yaml.Node, error) {
@@ -89,6 +90,7 @@ func prepareCliFlags() {
 	pflag.StringVarP(&outputFile, "output", "o", "", "Write inside file instead of stdin")
 	pflag.IntVarP(&depth, "depth", "d", -1, "Depth of walking")
 	pflag.BoolVarP(&includeEmpty, "all", "A", false, "Include empty values")
+	pflag.StringVarP(&kvSeparator, "symbol", "s", ": ", "Key - Value separator symbol (: or =)")
 	pflag.Parse()
 }
 
@@ -114,7 +116,7 @@ func walk(node *yaml.Node, path []string, out io.Writer, remain int) {
 
 	case yaml.MappingNode: // YAML object
 		if remain == 0 {
-			fmt.Fprintf(out, "%s: <object>\n", strings.Join(path, "."))
+			fmt.Fprintf(out, "%s%s<object>\n", strings.Join(path, "."), kvSeparator)
 			return
 		}
 
@@ -131,7 +133,7 @@ func walk(node *yaml.Node, path []string, out io.Writer, remain int) {
 
 	case yaml.SequenceNode: // YAML list: arr[0], arr[1], ...
 		if remain == 0 {
-			fmt.Fprintf(out, "%s: <array>\n", strings.Join(path, "."))
+			fmt.Fprintf(out, "%s%s<array>\n", strings.Join(path, "."), kvSeparator)
 			return
 		}
 
@@ -152,7 +154,7 @@ func walk(node *yaml.Node, path []string, out io.Writer, remain int) {
 
 		// If the scalar contains newlines or was originally a block scalar, preserve it as a literal block.
 		if node.Kind == yaml.ScalarNode && (strings.Contains(val, "\n") || node.Style == yaml.LiteralStyle || node.Style == yaml.FoldedStyle) {
-			fmt.Fprintf(out, "%s: |-\n", strings.Join(path, "."))
+			fmt.Fprintf(out, "%s%s|-\n", strings.Join(path, "."), kvSeparator)
 			lines := strings.Split(val, "\n")
 
 			for i, line := range lines {
@@ -169,11 +171,11 @@ func walk(node *yaml.Node, path []string, out io.Writer, remain int) {
 		// For single-line scalars that include YAML-sensitive characters, emit a quoted value.
 		if strings.ContainsAny(val, ":[]{},") || strings.HasPrefix(val, " ") || strings.HasSuffix(val, " ") {
 			escaped := strings.ReplaceAll(val, "\"", "\\\"")
-			fmt.Fprintf(out, "%s: \"%s\"\n", strings.Join(path, "."), escaped)
+			fmt.Fprintf(out, "%s%s\"%s\"\n", strings.Join(path, "."), kvSeparator, escaped)
 			return
 		}
 
-		fmt.Fprintf(out, "%s: %s\n", strings.Join(path, "."), val)
+		fmt.Fprintf(out, "%s%s%s\n", strings.Join(path, "."), kvSeparator, val)
 	}
 }
 
@@ -185,6 +187,11 @@ func printUsage() {
 
 func main() {
 	prepareCliFlags()
+
+	if (kvSeparator != ": ") && (kvSeparator != "=") {
+		printUsage()
+		return
+	}
 
 	entryPath := []string{}
 	if entry != "" {
